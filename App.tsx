@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   CheckCircle, 
   Users, 
@@ -10,7 +10,10 @@ import {
   Scissors, 
   UserCheck, 
   Maximize2,
-  X
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Gift
 } from 'lucide-react';
 
 // --- Constants ---
@@ -42,6 +45,17 @@ const EXPERIENCE_CAROUSEL = [
   "https://i.imgur.com/rAVSvWC.png",
   "https://i.imgur.com/mQoIR2X.png",
   "https://i.imgur.com/X4JbjMo.png"
+];
+
+const WHEEL_PRIZES = [
+  { text: "5% OFF", color: "#1c1c1c" },
+  { text: "10% OFF", color: "#d4af37" }, // Target
+  { text: "15% OFF", color: "#1c1c1c" },
+  { text: "LIMPEZA", color: "#2d2d2d" },
+  { text: "20% OFF", color: "#1c1c1c" },
+  { text: "BRINDE", color: "#d4af37" },
+  { text: "5% OFF", color: "#1c1c1c" },
+  { text: "BARBA", color: "#2d2d2d" },
 ];
 
 // --- Components ---
@@ -95,11 +109,152 @@ const SectionTitle: React.FC<{ title: string, subtitle?: string, center?: boolea
   </div>
 );
 
+const DiscountWheelModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const [rotation, setRotation] = useState(0);
+  const [isSpinning, setIsSpinning] = useState(false);
+  const [hasWon, setHasWon] = useState(false);
+
+  const spinWheel = () => {
+    if (isSpinning || hasWon) return;
+    setIsSpinning(true);
+
+    const segmentAngle = 360 / WHEEL_PRIZES.length;
+    const targetSegmentIndex = 1; // 10% OFF
+    // To land the middle of the segment at the top (0 deg)
+    // The segments start at i * segmentAngle.
+    // The middle of segment i is at (i * segmentAngle) + (segmentAngle / 2).
+    // To move that point to the top (pointer position), we subtract it from 360.
+    const targetAngle = 360 - (targetSegmentIndex * segmentAngle + segmentAngle / 2);
+    const totalRotation = (360 * 6) + targetAngle; // 6 full spins + target
+
+    setRotation(totalRotation);
+
+    setTimeout(() => {
+      setIsSpinning(false);
+      setHasWon(true);
+    }, 4000);
+  };
+
+  // Generate conic gradient string for the wheel background
+  const segmentAngle = 360 / WHEEL_PRIZES.length;
+  const conicGradient = WHEEL_PRIZES.map((prize, i) => 
+    `${prize.color} ${i * segmentAngle}deg ${(i + 1) * segmentAngle}deg`
+  ).join(', ');
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+      <div className="bg-zinc-950 border border-gold/30 rounded-3xl p-8 max-w-sm w-full text-center relative overflow-hidden shadow-[0_0_60px_rgba(212,175,55,0.3)]">
+        {!hasWon && <button onClick={onClose} className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors"><X size={24} /></button>}
+        
+        <h3 className="text-2xl font-bold mb-2 text-white italic">Sorteio Exclusivo!</h3>
+        <p className="text-zinc-400 text-sm mb-10">Gire a roleta e ganhe um presente especial para elevar seu estilo.</p>
+
+        <div className="relative w-64 h-64 mx-auto mb-10">
+          {/* Pointer */}
+          <div className="absolute top-[-15px] left-1/2 -translate-x-1/2 z-40">
+            <div className="w-0 h-0 border-l-[14px] border-l-transparent border-r-[14px] border-r-transparent border-t-[24px] border-t-white filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]"></div>
+          </div>
+          
+          {/* Wheel Body */}
+          <div 
+            className="w-full h-full rounded-full border-[6px] border-zinc-800 relative transition-transform duration-[4000ms] cubic-bezier(0.2, 0, 0.1, 1) shadow-[0_0_40px_rgba(0,0,0,0.8)]"
+            style={{ 
+              transform: `rotate(${rotation}deg)`,
+              background: `conic-gradient(${conicGradient})`
+            }}
+          >
+            {/* Text Labels */}
+            {WHEEL_PRIZES.map((prize, i) => {
+              const labelRotation = i * segmentAngle + segmentAngle / 2;
+              return (
+                <div 
+                  key={i}
+                  className="absolute top-0 left-0 w-full h-full flex items-start justify-center pt-8 pointer-events-none"
+                  style={{ transform: `rotate(${labelRotation}deg)` }}
+                >
+                  <span 
+                    className={`font-bold text-[11px] tracking-tighter uppercase whitespace-nowrap ${i === 1 || i === 5 ? 'text-zinc-900' : 'text-white/80'}`}
+                    style={{ textShadow: i === 1 || i === 5 ? 'none' : '0 1px 2px rgba(0,0,0,0.5)' }}
+                  >
+                    {prize.text}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Center Hub */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 bg-zinc-900 border-[3px] border-gold/50 rounded-full z-30 flex items-center justify-center shadow-2xl">
+            <div className="bg-zinc-800 w-10 h-10 rounded-full flex items-center justify-center border border-gold/20">
+              <Scissors size={20} className="text-gold" />
+            </div>
+          </div>
+        </div>
+
+        {!hasWon ? (
+          <button 
+            onClick={spinWheel}
+            disabled={isSpinning}
+            className={`w-full py-4 rounded-full font-bold text-lg transition-all duration-500 transform active:scale-95 ${isSpinning ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' : 'bg-gradient-gold text-zinc-900 shadow-[0_4px_15px_rgba(212,175,55,0.4)]'}`}
+          >
+            {isSpinning ? 'SORTEANDO...' : 'GIRAR AGORA'}
+          </button>
+        ) : (
+          <div className="animate-in fade-in zoom-in duration-700">
+            <div className="flex flex-col items-center gap-4 mb-8">
+              <div className="bg-gold/10 p-5 rounded-full text-gold animate-bounce">
+                <Gift size={40} />
+              </div>
+              <h4 className="text-3xl font-bold text-white tracking-tight uppercase">Excelente!</h4>
+              <div className="space-y-1">
+                <p className="text-gold font-bold text-2xl uppercase tracking-[0.2em]">10% OFF</p>
+                <p className="text-zinc-400 text-sm italic">Garantido para seu próximo atendimento.</p>
+              </div>
+            </div>
+            <a 
+              href={`${WHATSAPP_LINK}&text=Olá Siel! Ganhei 10% de desconto na roleta e quero agendar meu horário.`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-[#25D366] text-white font-bold py-5 px-6 rounded-full w-full flex items-center justify-center gap-3 text-lg uppercase shadow-[0_4px_20px_rgba(37,211,102,0.3)] hover:scale-105 transition-transform"
+            >
+              <MessageCircle fill="currentColor" size={24} />
+              RESGATAR PRÊMIO
+            </a>
+            <button onClick={onClose} className="mt-6 text-zinc-600 text-xs hover:text-zinc-400 uppercase tracking-widest transition-colors">Fechar</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const [selectedImg, setSelectedImg] = useState<string | null>(null);
+  const [showWheel, setShowWheel] = useState(false);
+  const carouselRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowWheel(true);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const scrollCarousel = (direction: 'left' | 'right') => {
+    if (carouselRef.current) {
+      const scrollAmount = 300;
+      carouselRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen selection:bg-amber-500/30 overflow-x-hidden">
+      {/* Discount Wheel */}
+      {showWheel && <DiscountWheelModal onClose={() => setShowWheel(false)} />}
+
       {/* Floating Button */}
       <FloatingWhatsApp />
 
@@ -260,20 +415,41 @@ const App: React.FC = () => {
       </section>
 
       {/* Experience Carousel Section */}
-      <section className="py-20 bg-zinc-950 overflow-hidden">
+      <section className="py-20 bg-zinc-950 overflow-hidden relative">
         <div className="px-6 max-w-5xl mx-auto mb-10">
           <SectionTitle title="Bastidores & Experiência" subtitle="A rotina de quem respira a barbearia clássica e moderna diariamente." />
         </div>
         
-        <div className="flex gap-4 overflow-x-auto px-6 pb-8 snap-x no-scrollbar">
-          {EXPERIENCE_CAROUSEL.map((img, i) => (
-            <div key={i} className="flex-shrink-0 w-64 md:w-80 h-96 rounded-2xl overflow-hidden snap-center relative group">
-              <img src={img} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" alt="Siel Felipe Trabalho" />
-              <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/80 to-transparent flex items-end p-6">
-                 <span className="text-white text-xs font-bold tracking-widest uppercase">Atendimento Premium</span>
+        <div className="relative group/carousel max-w-6xl mx-auto">
+          {/* Scroll Buttons */}
+          <button 
+            onClick={() => scrollCarousel('left')}
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 bg-zinc-950/80 border border-gold/30 p-3 rounded-full text-gold hover:bg-gold hover:text-zinc-900 transition-all hidden md:flex items-center justify-center shadow-xl opacity-0 group-hover/carousel:opacity-100"
+            aria-label="Anterior"
+          >
+            <ChevronLeft size={24} />
+          </button>
+          <button 
+            onClick={() => scrollCarousel('right')}
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 bg-zinc-950/80 border border-gold/30 p-3 rounded-full text-gold hover:bg-gold hover:text-zinc-900 transition-all hidden md:flex items-center justify-center shadow-xl opacity-0 group-hover/carousel:opacity-100"
+            aria-label="Próximo"
+          >
+            <ChevronRight size={24} />
+          </button>
+
+          <div 
+            ref={carouselRef}
+            className="flex gap-4 overflow-x-auto px-6 pb-8 snap-x no-scrollbar scroll-smooth"
+          >
+            {EXPERIENCE_CAROUSEL.map((img, i) => (
+              <div key={i} className="flex-shrink-0 w-64 md:w-80 h-96 rounded-2xl overflow-hidden snap-center relative group">
+                <img src={img} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" alt="Siel Felipe Trabalho" />
+                <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/80 to-transparent flex items-end p-6">
+                   <span className="text-white text-xs font-bold tracking-widest uppercase">Atendimento Premium</span>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </section>
 
